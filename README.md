@@ -1,2 +1,0 @@
-# Glpraj
-Glpraj
