@@ -27,7 +27,7 @@ if not os.path.exists(DB_FILE):
     conn.close()
 
 # ================= Bot Token =================
-TOKEN = "8447799444:AAHOBKhUGpQwit_FLIF89au8tylZPPYTu_s
+TOKEN = "8447799444:AAHOBKhUGpQwit_FLIF89au8tylZPPYTu_s"
 
 # ================= Images =================
 IMAGES = {
