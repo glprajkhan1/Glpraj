@@ -1,0 +1,132 @@
+import os
+import sqlite3
+import subprocess
+import sys
+
+# ================= Install Dependencies =================
+try:
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, InputMediaPhoto
+    from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot==13.15"])
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, InputMediaPhoto
+    from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
+
+# ================= Database Setup =================
+DB_FILE = "users.db"
+if not os.path.exists(DB_FILE):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+    CREATE TABLE users (
+        user_id INTEGER PRIMARY KEY,
+        balance INTEGER DEFAULT 100
+    )
+    """)
+    conn.commit()
+    conn.close()
+
+# ================= Bot Token =================
+TOKEN = "8447799444:AAHOBKhUGpQwit_FLIF89au8tylZPPYTu_s"
+
+# ================= Images =================
+IMAGES = {
+    "shop": "https://i.ibb.co/8z7q4bM/shop.png",   # Main Shop Banner
+    "coins": "https://i.ibb.co/0qz6Tx9/coins.png", # Coins Image
+    "gems": "https://i.ibb.co/vY2xM0m/gems.png",   # Gems Image
+    "wallet": "https://i.ibb.co/pPJr3VG/wallet.png" # Wallet Added Image
+}
+
+# ================= Balance Function =================
+def get_balance(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else 0
+
+# ================= Start Command =================
+def start(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO users (user_id, balance) VALUES (?, ?)", (user_id, 100))
+    conn.commit()
+    conn.close()
+
+    balance = get_balance(user_id)
+
+    # Inline Buttons
+    keyboard = [
+        [InlineKeyboardButton("🪙 Coins", callback_data='coins')],
+        [InlineKeyboardButton("💎 Gems", callback_data='gems')],
+        [InlineKeyboardButton("💰 Add Wallet +50", callback_data='wallet')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Main Shop Image + Caption
+    update.message.reply_photo(
+        photo=IMAGES["shop"],
+        caption=f"*💠 TapShop Bot*\n\n"
+                f"*Your Balance:* 💰 `{balance}`\n\n"
+                f"Select an option below:",
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
+    )
+
+# ================= Button Handler =================
+def button(update: Update, context: CallbackContext):
+    query = update.callback_query
+    user_id = query.from_user.id
+    query.answer()
+
+    balance = get_balance(user_id)
+
+    keyboard = [
+        [InlineKeyboardButton("🪙 Coins", callback_data='coins')],
+        [InlineKeyboardButton("💎 Gems", callback_data='gems')],
+        [InlineKeyboardButton("💰 Add Wallet +50", callback_data='wallet')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if query.data == 'coins':
+        query.edit_message_media(
+            media=InputMediaPhoto(IMAGES["coins"],
+            caption=f"*🪙 Coins Shop*\n\nYour Balance: 💰 `{balance}`",
+            parse_mode='Markdown'),
+            reply_markup=reply_markup
+        )
+
+    elif query.data == 'gems':
+        query.edit_message_media(
+            media=InputMediaPhoto(IMAGES["gems"],
+            caption=f"*💎 Gems Shop*\n\nYour Balance: 💰 `{balance}`",
+            parse_mode='Markdown'),
+            reply_markup=reply_markup
+        )
+
+    elif query.data == 'wallet':
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET balance = balance + 50 WHERE user_id = ?", (user_id,))
+        conn.commit()
+        conn.close()
+        balance = get_balance(user_id)
+        query.edit_message_media(
+            media=InputMediaPhoto(IMAGES["wallet"],
+            caption=f"*💰 Wallet Added!*\n\nNew Balance: 💰 `{balance}`",
+            parse_mode='Markdown'),
+            reply_markup=reply_markup
+        )
+
+# ================= Main =================
+def main():
+    updater = Updater(TOKEN)
+    updater.dispatcher.add_handler(CommandHandler('start', start))
+    updater.dispatcher.add_handler(CallbackQueryHandler(button))
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    main()
